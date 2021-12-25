@@ -1,56 +1,103 @@
-import { StyleSheet, Text, TouchableOpacity, View, FlatList, Image, TextInput, ActivityIndicator } from 'react-native'
-import React, { Component } from 'react'
-import axios from 'axios'
-
+import {
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  FlatList,
+  Image,
+  TextInput,
+  ActivityIndicator,
+} from 'react-native';
+import React, {Component} from 'react';
+import axios from 'axios';
 
 export default class FlatListExam extends Component {
   state = {
     text: '',
     contacts: [],
     allContacts: [],
-    loading: true
-  }
+    loading: true,
+    page: 20,
+    refreshing: false,
+  };
 
   componentDidMount() {
     this.getContacts();
   }
 
   getContacts = async () => {
-    const { data: { results: contacts } } = await axios.get('https://randomuser.me/api?results=30');
     this.setState({
-      contacts,
-      allContacts: contacts,
-      loading: false
+      loading: true,
+    });
+    const {
+      data: {results: contacts},
+    } = await axios.get(
+      `https://randomuser.me/api?results=20&page=${this.state.page}`,
+    );
+    const users = [...this.state.allContacts, ...contacts];
+    if(this.state.refreshing){
+      users.reverse();
+    }
+    this.setState({
+      contacts: users,
+      allContacts: users,
+      loading: false,
+      refreshing:false
     });
     // console.log(data);
-  }
+  };
+  loadMore = () => {
+    if (!this.duringMomentum) {
+      this.setState(
+        {
+          page: this.state.page + 1,
+        },
+        () => {
+          this.getContacts();
+        },
+      );
+      this.duringMomentum=true
+    }
+  };
 
-  renderContactsItem = ({ item, index }) => {
+  onRefresh = () => {
+    this.setState(
+      {
+        page: 1,
+        refreshing: true,
+      },
+      () => {
+        this.getContacts();
+      },
+    );
+  };
+
+  renderContactsItem = ({item, index}) => {
     return (
-      <TouchableOpacity style={[styles.itemContainer, index % 2 === 1 ? styles.itemColor : '']}>
-        <Image
-          style={styles.avatar}
-          source={{ uri: item.picture.thumbnail }}
-        />
+      <TouchableOpacity
+        style={[styles.itemContainer, index % 2 === 1 ? styles.itemColor : '']}>
+        <Image style={styles.avatar} source={{uri: item.picture.thumbnail}} />
         <View style={styles.textContainer}>
-          <Text style={styles.name}>{item.name.first} {item.name.last}</Text>
+          <Text style={styles.name}>
+            {item.name.first} {item.name.last}
+          </Text>
           <Text>{item.location.state}</Text>
         </View>
       </TouchableOpacity>
-    )
-  }
+    );
+  };
   searchFilter = text => {
     const newData = this.state.allContacts.filter(item => {
       const listItem = `${item.name.first.toLowerCase()} ${item.name.last.toLowerCase()} ${item.location.state.toLowerCase()}`;
-      return listItem.indexOf(text.toLowerCase()) > -1;
-    })
+      return listItem.indexOf(text.toLowerCase()) > -1; /* where id=0 */
+    });
     this.setState({
-      contacts: newData
-    })
-  }
+      contacts: newData,
+    });
+  };
 
   renderHeader = () => {
-    const { text } = this.state;
+    const {text} = this.state;
     return (
       <View style={styles.searchContainer}>
         <TextInput
@@ -62,21 +109,19 @@ export default class FlatListExam extends Component {
           }}
           style={styles.searchInput}
           value={text}
-          placeholder='Search...'
+          placeholder="Search..."
         />
       </View>
-
-    )
-  }
+    );
+  };
   renderFooter = () => {
-    if(!this.state.loading) return null;
+    if (!this.state.loading) return null;
     return (
-      <View>
-        <ActivityIndicator size='large' />
+      <View style={{paddingVertical:10}}>
+        <ActivityIndicator size="large" />
       </View>
-    )
-  }
-
+    );
+  };
 
   render() {
     return (
@@ -86,9 +131,13 @@ export default class FlatListExam extends Component {
         ListFooterComponent={this.renderFooter()}
         keyExtractor={item => item.login.uuid.toString()}
         data={this.state.contacts}
+        onMomentumScrollBegin={() =>{this.duringMomentum=false}}
+        onEndReached={this.loadMore}
+        onEndReachedThreshold={20}
+        refreshing={this.state.refreshing}
+        onRefresh={this.onRefresh}
       />
-    )
-
+    );
   }
 }
 const styles = StyleSheet.create({
@@ -101,28 +150,26 @@ const styles = StyleSheet.create({
     borderBottomColor: '#eee',
   },
   itemColor: {
-    backgroundColor: '#f1f1f1'
+    backgroundColor: '#f1f1f1',
   },
   avatar: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    marginHorizontal: 10
+    marginHorizontal: 10,
   },
   textContainer: {
-    justifyContent: 'space-between'
+    justifyContent: 'space-between',
   },
   name: {
     fontSize: 16,
   },
   searchContainer: {
-    padding: 10
+    padding: 10,
   },
   searchInput: {
     fontSize: 16,
     backgroundColor: '#f9f9f9',
-    padding: 10
-  }
-})
-
-
+    padding: 10,
+  },
+});
